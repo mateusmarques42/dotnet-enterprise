@@ -56,7 +56,7 @@ namespace NSE.Identidade.API
                     ValidateIssuer = true,
                     ValidateAudience = true,
                     ValidAudience = appSettings.ValidoEm,
-                    ValidIssuer = appSettings.Emissor,
+                    ValidIssuer = appSettings.Emissor
                 };
             });
 
