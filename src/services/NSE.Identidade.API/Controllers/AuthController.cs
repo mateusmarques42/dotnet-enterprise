@@ -13,9 +13,8 @@ using System.Threading.Tasks;
 
 namespace NSE.Identidade.API.Controllers
 {
-    [ApiController]
     [Route("api/identidade")]
-    public class AuthController : Controller
+    public class AuthController : MainController
     {
         private readonly UserManager<IdentityUser> _userManager;
         private readonly SignInManager<IdentityUser> _signInManager;
@@ -34,7 +33,7 @@ namespace NSE.Identidade.API.Controllers
         [HttpPost("nova-conta")]
         public async Task<ActionResult> Registrar(UsuarioRegistro usuarioRegistro)
         {
-            if (!ModelState.IsValid) return BadRequest();
+            if (!ModelState.IsValid) return CustomResponse(ModelState);
 
             var user = new IdentityUser
             {
@@ -47,26 +46,37 @@ namespace NSE.Identidade.API.Controllers
 
             if (result.Succeeded)
             {
-                await _signInManager.SignInAsync(user, false);
-                return Ok();
+                return CustomResponse(await GerarToken(usuarioRegistro.Email));
             }
 
-            return BadRequest();
+            foreach (var error in result.Errors)
+            {
+                AdicionarErroProcessamento(error.Description);
+            }
+
+            return CustomResponse();
         }
 
         [HttpPost("autenticar")]
         public async Task<ActionResult> Login(UsuarioLogin usuarioLogin)
         {
-            if (!ModelState.IsValid) return BadRequest();
+            if (!ModelState.IsValid) return CustomResponse(ModelState);
 
             var result = await _signInManager.PasswordSignInAsync(usuarioLogin.Email, usuarioLogin.Senha, false, true);
 
             if (result.Succeeded)
             {
-                return Ok(await GerarToken(usuarioLogin.Email));
+                return CustomResponse(await GerarToken(usuarioLogin.Email));
             }
 
-            return BadRequest();
+            if (result.IsLockedOut)
+            {
+                AdicionarErroProcessamento("Usuário temporariamente bloquado por tentativas inválidas");
+                return CustomResponse();
+            }
+
+            AdicionarErroProcessamento("Usuário ou senha incorretos");
+            return CustomResponse();
         }
 
         private async Task<UsuarioRespostaLogin> GerarToken(string email)
@@ -115,7 +125,7 @@ namespace NSE.Identidade.API.Controllers
                 }
             };
 
-            return response; 
+            return response;
         }
 
         private static long ToUnixEpochDate(DateTime date) =>
